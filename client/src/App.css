@@ -1,0 +1,189 @@
+/* Global Styling */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-size: 16px;
+  font-family: 'Open Sans', sans-serif;
+  color: #333;
+  background-color: #f8f9fa; /* Light background */
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 20px;
+}
+
+.header {
+  font-size: 2rem;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Filter Dropdown */
+.filter-container {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+select {
+  padding: 8px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+/* Product Grid */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  justify-items: center;
+}
+
+.product-card {
+  background: white;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 250px;
+  transition: transform 0.2s ease-in-out;
+}
+
+.product-card:hover {
+  transform: scale(1.05);
+}
+
+.product-image {
+  width: 100%;
+  height: auto;
+  max-width: 150px;
+  margin-bottom: 10px;
+}
+
+.low-stock {
+  border: 2px solid red;
+}
+
+/* Buttons */
+.restock-btn {
+  background-color: green;
+  color: white;
+  padding: 8px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.restock-btn {
+  background-color: #28a745;
+  color: white;
+  font-size: 14px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.restock-btn:hover {
+  background-color: #218838;
+}
+
+.sell-btn {
+  background-color: blue;
+  color: white;
+  padding: 8px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.sell-btn:hover {
+  background-color: darkblue;
+}
+
+/* Low Stock Alerts */
+.alert-box {
+  background-color: #ffdddd;
+  padding: 15px;
+  border-left: 5px solid #ff4d4d;
+  border-radius: 5px;
+  font-weight: bold;
+  color: #a60000;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Log Section */
+.log-section {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 5px;
+  border-left: 5px solid #007bff;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
+
+.log-box {
+  height: 200px;  /* Make it larger for better visibility */
+  overflow-y: auto;  /* Enable scrolling if too many logs */
+  padding: 10px;
+  border: 1px solid #ddd;
+  background-color: #fff;
+}
+
+.log-box p {
+  font-size: 14px;
+  padding: 5px 0;
+  margin: 0;
+  border-bottom: 1px solid #eee;
+  padding-left: 10px;
+}
+
+.log-box p:last-child {
+  border-bottom: none;
+}
+
+.dashboard-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.dashboard-btn:hover {
+  background-color: #0056b3;
+}
+
+.dashboard-container {
+  text-align: center;
+  margin: 20px;
+}
+
+.back-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.back-btn:hover {
+  background-color: #218838;
+}
