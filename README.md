@@ -28,8 +28,3 @@ Follow the tutorial [here](https://pusher.com/tutorials/mongodb-change-streams).
 * [React](https://reactjs.org/) - A JavaScript library for building webapps
 * [Pusher](https://pusher.com/) - APIs to enable devs building realtime features
 
-## Acknowledgments
-* Thanks to [Pusher](https://pusher.com/) for sponsoring this tutorial.
-
-## LICENSE
-MIT
