@@ -36,8 +36,20 @@ mongoose
     console.error("❌ MongoDB Connection Error:", err);
     process.exit(1); // Stops the server if DB connection fails
   });
+async function restorePendingRestocks() {
+  console.log("🔄 Checking for pending restocks...");
 
-// **Automatic Selling Process - Runs Every 30 Mins**
+  const products = await Product.find({ pending_restock: { $gt: 0 } });
+  products.forEach((product) => {
+    console.log(`⏳ Resuming pending restock for ${product.name} - ${product.pending_restock} units`);
+    warehouseRestockApproval(product._id, product.pending_restock);
+  });
+}
+
+// Run this when the server starts
+restorePendingRestocks();
+
+  // **Automatic Selling Process - Runs Every 30 Mins**
 async function autoSellProducts() {
   console.log("🔄 Fetching products for auto-selling...");
 
@@ -81,29 +93,34 @@ setInterval(async () => {
   } catch (err) {
     console.error("❌ Error in auto-sell:", err);
   }
-}, 30 * 1000); // 30 seconds
+}, 30000); // 30 seconds
 
 // **Warehouse Restocking Approval (15 mins buffer)**
+const PendingRestocks = {}; // Temporary storage for pending restocks
+
 async function warehouseRestockApproval(productId, restockAmount) {
-  console.log(`⏳ Waiting for warehouse approval to restock ${productId}...`);
+  console.log(`⏳ Restock request received for ${productId}, waiting for approval...`);
+
+  // Store pending restock in the database
+  await Product.findByIdAndUpdate(productId, { pending_restock: restockAmount });
 
   setTimeout(async () => {
     const product = await Product.findById(productId);
     if (product) {
-      product.stock_quantity += restockAmount;
+      product.stock_quantity += product.pending_restock;
+      product.pending_restock = 0; // Clear pending restock
       await product.save();
       console.log(`✅ RESTOCKED: ${product.name || "Unknown Product"} - New Stock: ${product.stock_quantity}`);
 
       pusher.trigger("products", "restocked", { 
         id: product._id, 
-        name: product.name || "Unknown Product",  // ✅ Now includes product name
+        name: product.name || "Unknown Product",  
         stock_quantity: product.stock_quantity
-      });
-
+      }); 
     } else {
       console.log("❌ ERROR: Product not found for restocking!");
     }
-  }, 15 * 1000); // 15 seconds
+  }, 15000); // 15 seconds
 }
 
 // **Route: Get All Products with Image Mapping**

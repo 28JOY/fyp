@@ -11,7 +11,11 @@ const productSchema = new mongoose.Schema({
   material: { type: String },
   stock_quantity: { type: Number, required: true, default: 0 },
   created_at: { type: Date, default: Date.now },
-  updated_at: { type: Date, default: Date.now }
+  updated_at: { type: Date, default: Date.now },
+  pending_restock: {
+    type: Number,
+    default: 0
+  }
 }, { collection: "products" }); // ✅ Explicitly set collection name
 
 // ✅ Update `updated_at` before saving

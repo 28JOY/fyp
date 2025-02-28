@@ -171,6 +171,10 @@ class App extends Component {
       alert("Please enter a valid restock amount.");
       return;
     }
+
+    this.setState((prevState) => ({
+      [`restock_${productId}_pending`]: true,
+    }));
   
     fetch(`${API_URL}/restock`, {
       method: "POST",
@@ -180,9 +184,12 @@ class App extends Component {
       .then((res) => res.json())
       .then((data) => {
         console.log(data.message);
+
         this.setState((prevState) => ({
           logs: [...prevState.logs, `✅ Restock requested: ${amount} units for ${productId}.`],
+          [`restock_${productId}_pending`]: false, // Remove pending state when approved
         }));
+        
         alert(`Restock process started for ${productId}. Approval in 15 seconds.`);
       })
       .catch((err) => console.error("Error in restocking:", err));
@@ -256,6 +263,7 @@ class App extends Component {
       <p>
         <b>{product.name}</b> is running low! Approval pending.
       </p>
+      {this.state[`restock_${product._id}`] === undefined ? (
       <input
         type="number"
         min="1"
@@ -263,12 +271,12 @@ class App extends Component {
         value={this.state[`restock_${product._id}`] || ""}
         onChange={(e) => {
           const value = e.target.value;
-          this.setState((prevState) => ({
-            ...prevState,
-            [`restock_${product._id}`]: value,
-          }));
+          this.setState({ [`restock_${product._id}`]: value});
         }}
       />
+    ) : (
+      <p><b>Restock Amount: {this.state[`restock_${product._id}`]}</b></p>
+    )}
       <button 
         className="restock-btn"
         onClick={() => {
