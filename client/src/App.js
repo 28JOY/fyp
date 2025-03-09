@@ -36,10 +36,19 @@ class App extends Component {
         const updatedProducts = prevState.products.map((p) =>
           p._id === productId ? { ...p, stock_quantity: updatedProduct.stock_quantity } : p
         );
+
+        // Check if the updated product is now low on stock
+        const isLowStock = updatedProduct.stock_quantity < 25;
+        const lowStockExists = prevState.lowStockProducts.some((p) => p._id === productId);
     
         return {
           products: updatedProducts,
           filteredProducts: updatedProducts, // ✅ Ensures filtered products update
+          lowStockProducts: isLowStock
+            ? lowStockExists
+              ? prevState.lowStockProducts
+              : [...prevState.lowStockProducts, updatedProduct]
+            : prevState.lowStockProducts.filter((p) => p._id !== productId),
           logs: [
             ...prevState.logs,
             `🛒 Product Sold: ${updatedProduct.name}, Remaining Stock: ${updatedProduct.stock_quantity}`,
@@ -48,20 +57,22 @@ class App extends Component {
       });
     });       
 
-   this.channel.bind("low-stock", (alertProduct) => {
-    console.log("⚠ Received low-stock alert:", alertProduct);
-  
-    this.setState((prevState) => {
-      const alreadyExists = prevState.lowStockProducts.some((p) => p._id === alertProduct._id);
-      if (alreadyExists) return null; // Prevent duplicates
-  
-      return {
-        lowStockProducts: [...prevState.lowStockProducts, alertProduct],
-        logs: [...prevState.logs, `⚠ Low Stock Alert: ${alertProduct.name} is running low!`],
-      };
-    });
-  });      
+    this.channel.bind("low-stock", (alertProduct) => {
+      console.log("⚠ Received low-stock alert:", alertProduct);
+    
+      this.setState((prevState) => {
+        const alreadyExists = prevState.lowStockProducts.some((p) => p._id === alertProduct._id);
+        if (alreadyExists) return null; // Prevent duplicates
 
+        console.log("📢 Updating lowStockProducts:", [...prevState.lowStockProducts, alertProduct]);
+    
+        return {
+          lowStockProducts: [...prevState.lowStockProducts, alertProduct],
+          logs: [...prevState.logs, `⚠ Low Stock Alert: ${alertProduct.name} is running low!`],
+        };
+      });
+    }); 
+    
   this.channel.bind("restocked", (restockedProduct) => {
     if (!restockedProduct || (!restockedProduct._id && !restockedProduct.id)) return;
   
@@ -71,11 +82,13 @@ class App extends Component {
       const updatedProducts = prevState.products.map((p) =>
         p._id === productId ? { ...p, stock_quantity: restockedProduct.stock_quantity } : p
       );
+
+      console.log("✅ Restock Event Received. Removing low-stock alert for:", restockedProduct.name);
   
       return {
         products: updatedProducts,
         filteredProducts: updatedProducts,
-        lowStockProducts: prevState.lowStockProducts.filter((p) => p._id !== productId),
+        lowStockProducts: updatedProducts.filter((p) => p.stock_quantity < 25),
         logs: [
           ...prevState.logs,
           `✅ Warehouse Restock Approved: ${restockedProduct.name}, New Stock: ${restockedProduct.stock_quantity}`
@@ -85,6 +98,16 @@ class App extends Component {
   });  
 
   }
+
+  componentWillUnmount() {
+    if (this.channel) {
+      this.channel.unbind_all();  // ✅ Unbind all events
+      this.channel.unsubscribe(); // ✅ Unsubscribe from Pusher channel
+    }
+    if (this.pusher) {
+      this.pusher.disconnect(); // ✅ Fully disconnect Pusher to free resources
+    }
+  }  
 
   fetchProducts = () => {
     fetch(API_URL)
@@ -99,7 +122,7 @@ class App extends Component {
   
         // Log the alert immediately if low stock products are found
         if (lowStockItems.length > 0) {
-          console.log("⚠ Found low stock products on startup, triggering alerts...");
+          console.debug("⚠ Found low stock products on startup, triggering alerts...");
         }
   
         this.setState({
@@ -119,7 +142,7 @@ class App extends Component {
           logs: [...this.state.logs, "❌ Failed to fetch products. Check server."],
         });
       });
-  };  
+  }; 
     
   handleCategoryChange = (e) => {
     const selectedCategory = e.target.value;
@@ -145,13 +168,13 @@ class App extends Component {
       alert("Please select a product to test selling.");
       return;
     }
-
+  
     const selectedProduct = this.state.products.find((p) => p._id === selectedTestProduct);
     if (!selectedProduct) {
       alert("Product not found.");
       return;
     }
-
+  
     fetch(`${API_URL}/sell`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -159,12 +182,29 @@ class App extends Component {
     })
       .then((res) => res.json())
       .then((data) => {
-        this.setState((prevState) => ({
-          logs: [...prevState.logs, `🛠 Test Sell: ${testSellQuantity} units of ${selectedProduct.name} sold.`],
-        }));
+        this.setState((prevState) => {
+          const updatedProducts = prevState.products.map((p) =>
+            p._id === selectedTestProduct ? { ...p, stock_quantity: p.stock_quantity - testSellQuantity } : p
+          );
+
+          // Immediately update lowStockProducts
+          const lowStockItems = updatedProducts.filter((p) => p.stock_quantity < 25);
+          const isLowStockNow = lowStockItems.some((p) => p._id === selectedTestProduct);
+  
+          return {
+            products: updatedProducts,
+            filteredProducts: updatedProducts,
+            lowStockProducts: isLowStockNow // ✅ Ensures UI updates without refresh
+            ? [...prevState.lowStockProducts, selectedProduct]
+              : prevState.lowStockProducts,
+            logs: [...prevState.logs, `🛠 Test Sell: ${testSellQuantity} units of ${selectedProduct.name} sold.`],
+          };
+        }, () => {
+          console.log("✅ Updated products after test selling:", this.state.products);
+        });
       })
       .catch((err) => console.error("Error selling product:", err));
-  };
+  };  
 
   restockProduct = (productId, amount) => {
     if (!amount || amount <= 0) {
@@ -172,10 +212,20 @@ class App extends Component {
       return;
     }
 
-    this.setState((prevState) => ({
-      [`restock_${productId}_pending`]: true,
-    }));
-  
+    // Ensure the product exists before making the API call
+    const product = this.state.products.find((p) => p._id === productId);
+    if (!product) {
+      alert("❌ Error: Product not found in the inventory.");
+      return;
+    }
+
+    if (this.state.lowStockProducts.some((p) => p._id === productId && p.restockRequested)) {
+      alert(`Restock request for ${product.name} is already in progress.`);
+      return;
+    }
+
+    console.log(`📦 Restock requested for ${product.name} (${productId}) with ${amount} units.`);
+
     fetch(`${API_URL}/restock`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -185,15 +235,29 @@ class App extends Component {
       .then((data) => {
         console.log(data.message);
 
+        // Update state to remove from lowStockProducts
         this.setState((prevState) => ({
-          logs: [...prevState.logs, `✅ Restock requested: ${amount} units for ${productId}.`],
-          [`restock_${productId}_pending`]: false, // Remove pending state when approved
-        }));
-        
-        alert(`Restock process started for ${productId}. Approval in 15 seconds.`);
+          products: prevState.products.map((p) =>
+            p._id === productId ? { ...p, stock_quantity: p.stock_quantity + parseInt(amount, 10) } : p
+          ),
+          filteredProducts: prevState.filteredProducts.map((p) =>
+            p._id === productId ? { ...p, stock_quantity: p.stock_quantity + parseInt(amount, 10) } : p
+          ),
+          lowStockProducts: prevState.lowStockProducts.map((p) =>
+          p._id === productId ? { ...p, restockRequested: true } : p
+        ),
+          logs: [
+            ...prevState.logs,
+            `✅ Restock requested: ${amount} units for ${product.name} (${productId}).`,
+          ],
+        }), () => {
+          console.log("✅ Updated lowStockProducts after restock:", this.state.lowStockProducts);
+        });
+
+        alert(`Restock process started for ${product.name}. Approval in 15 seconds.`);
       })
-      .catch((err) => console.error("Error in restocking:", err));
-  };  
+      .catch((err) => console.error("❌ Error in restocking:", err));
+  };    
 
   render() {
     return (
@@ -257,13 +321,17 @@ class App extends Component {
     <h2>
     <span role="img" aria-label="warning">⚠</span> Low Stock Alert!
     </h2>
-    {this.state.lowStockProducts.map((product) => {
+    {this.state.lowStockProducts.map((product, index) => {
+  if (!product._id) {
+    console.error("❌ Missing _id for product:", product);
+    return null; // Prevents rendering invalid products
+  }
+
   return (
-    <div key={product._id} className="low-stock-item">
+    <div key={product._id || `lowStock-${index}`} className="low-stock-item">
       <p>
         <b>{product.name}</b> is running low! Approval pending.
       </p>
-      {this.state[`restock_${product._id}`] === undefined ? (
       <input
         type="number"
         min="1"
@@ -271,12 +339,12 @@ class App extends Component {
         value={this.state[`restock_${product._id}`] || ""}
         onChange={(e) => {
           const value = e.target.value;
-          this.setState({ [`restock_${product._id}`]: value});
+          this.setState((prevState) => ({
+            ...prevState,
+            [`restock_${product._id}`]: value,
+          }));
         }}
       />
-    ) : (
-      <p><b>Restock Amount: {this.state[`restock_${product._id}`]}</b></p>
-    )}
       <button 
         className="restock-btn"
         onClick={() => {
@@ -297,7 +365,8 @@ class App extends Component {
 )}
         {/* System Logs */}
         <div className="log-section">
-          <h2>📜 System Logs</h2>
+          <h2>
+            <span role="img" aria-label="document"></span>📜 System Logs</h2>
           <div className="log-box">
             {this.state.logs.map((log, index) => (
               <p key={index}>{log}</p>

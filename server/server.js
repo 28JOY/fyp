@@ -101,14 +101,10 @@ const PendingRestocks = {}; // Temporary storage for pending restocks
 async function warehouseRestockApproval(productId, restockAmount) {
   console.log(`⏳ Restock request received for ${productId}, waiting for approval...`);
 
-  // Store pending restock in the database
-  await Product.findByIdAndUpdate(productId, { pending_restock: restockAmount });
-
   setTimeout(async () => {
     const product = await Product.findById(productId);
     if (product) {
-      product.stock_quantity += product.pending_restock;
-      product.pending_restock = 0; // Clear pending restock
+      product.stock_quantity += restockAmount;
       await product.save();
       console.log(`✅ RESTOCKED: ${product.name || "Unknown Product"} - New Stock: ${product.stock_quantity}`);
 
@@ -184,6 +180,16 @@ app.post("/api/products/sell", async (req, res) => {
     name: product.name,
     stock_quantity: product.stock_quantity,
   });  
+
+  // ✅ If stock falls below 25, trigger the low-stock event
+  if (product.stock_quantity < 25 && !lowStockSent[product._id]) {
+    console.log(`⚠ ALERT: ${product.name} stock below 25!`);
+    pusher.trigger("products", "low-stock", { 
+       id: product._id, 
+       name: product.name 
+    });
+    lowStockSent[product._id] = true; // Mark alert as sent
+  }
 
   res.json({ message: `Sold ${sellQuantity} units for testing!`, product });
 });

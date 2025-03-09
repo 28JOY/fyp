@@ -72,16 +72,6 @@ select {
 
 /* Buttons */
 .restock-btn {
-  background-color: green;
-  color: white;
-  padding: 8px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  width: 100%;
-}
-
-.restock-btn {
   background-color: #28a745;
   color: white;
   font-size: 14px;
