@@ -38,11 +38,10 @@ mongoose
   });
 async function restorePendingRestocks() {
   console.log("🔄 Checking for pending restocks...");
-
   const products = await Product.find({ pending_restock: { $gt: 0 } });
   products.forEach((product) => {
     console.log(`⏳ Resuming pending restock for ${product.name} - ${product.pending_restock} units`);
-    warehouseRestockApproval(product._id, product.pending_restock);
+    warehouseRestockApproval(product._id);
   });
 }
 
@@ -52,7 +51,6 @@ restorePendingRestocks();
   // **Automatic Selling Process - Runs Every 30 Mins**
 async function autoSellProducts() {
   console.log("🔄 Fetching products for auto-selling...");
-
   const products = await Product.find({ stock_quantity: { $gt: 0 } });
 
   if (products.length === 0) {
@@ -74,7 +72,6 @@ async function autoSellProducts() {
        id: productToSell._id, 
        name: productToSell.name 
     });
-
     lowStockSent[productToSell._id] = true; // Mark alert as sent
  } 
 

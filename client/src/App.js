@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import "./App.css";
 import Pusher from "pusher-js"; 
+import { Link } from "react-router-dom";
 
 const API_URL = "http://localhost:9000/api/products";
 const PUSHER_APP_KEY = "b33f1b0ed24e39eb346e";
@@ -230,6 +231,14 @@ class App extends Component {
         <h1 className="header">
         <span role="img" aria-label="box">📦</span> Product Inventory
           </h1>
+
+      <div className="dashboard-container">
+          <Link to="/dashboard">
+            <button className="dashboard-btn">
+              <span role="img" aria-label="bar chart">📊</span> View Dashboard
+            </button>
+          </Link>
+      </div>    
 
         {/* Filter Dropdown */}
         <div className="filter-container">
