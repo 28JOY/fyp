@@ -98,25 +98,28 @@ setInterval(async () => {
 // **Warehouse Restocking Approval (15 mins buffer)**
 const PendingRestocks = {}; // Temporary storage for pending restocks
 
-async function warehouseRestockApproval(productId, restockAmount) {
+async function warehouseRestockApproval(productId) {
   console.log(`⏳ Restock request received for ${productId}, waiting for approval...`);
 
   setTimeout(async () => {
     const product = await Product.findById(productId);
-    if (product) {
-      product.stock_quantity += restockAmount;
+    if (product && product.pending_restock > 0) {
+      const approvedAmount = product.pending_restock; // Approve the full amount
+      product.stock_quantity += approvedAmount;
+      product.pending_restock = 0;
+      product.restock_status = "approved";
       await product.save();
-      console.log(`✅ RESTOCKED: ${product.name || "Unknown Product"} - New Stock: ${product.stock_quantity}`);
+      console.log(`✅ RESTOCKED: ${product.name} - New Stock: ${product.stock_quantity}`);
 
-      pusher.trigger("products", "restocked", { 
-        id: product._id, 
-        name: product.name || "Unknown Product",  
-        stock_quantity: product.stock_quantity
-      }); 
+      pusher.trigger("products", "restocked", {
+        id: product._id,
+        name: product.name,
+        stock_quantity: product.stock_quantity,
+      });
     } else {
-      console.log("❌ ERROR: Product not found for restocking!");
+      console.log("❌ ERROR: Product not found or no pending restock!");
     }
-  }, 15000); // 15 seconds
+  }, 15000); // ✅ Approval takes 15 seconds
 }
 
 // **Route: Get All Products with Image Mapping**
@@ -207,10 +210,14 @@ app.post("/api/products/restock", async (req, res) => {
     return res.status(404).json({ message: "Product not found." });
   }
 
-  console.log(`✅ Restock request received for ${amount} units of ${product.name}. Processing...`);
-  warehouseRestockApproval(productId, amount);
+  product.pending_restock = amount;
+  product.restock_status = "pending";
+  await product.save();
 
-  res.json({ message: `Restock process started for ${product.name}. Approval in 15 seconds.` });
+  console.log(`✅ Restock request logged: ${amount} units for ${product.name}. Waiting for approval...`);
+  warehouseRestockApproval(productId);
+
+  res.json({ message: `Restock request pending for ${product.name}. Approval in 15 seconds.` });
 });
 
 // **Start Server**

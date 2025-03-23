@@ -177,3 +177,14 @@ select {
 .back-btn:hover {
   background-color: #218838;
 }
+
+.out-of-stock {
+  opacity: 0.6;
+  filter: grayscale(70%);
+}
+
+.stock-warning {
+  color: red;
+  font-weight: bold;
+}
+

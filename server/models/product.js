@@ -12,10 +12,8 @@ const productSchema = new mongoose.Schema({
   stock_quantity: { type: Number, required: true, default: 0 },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
-  pending_restock: {
-    type: Number,
-    default: 0
-  }
+  pending_restock: { type: Number, default: 0 }, // ✅ Track unapproved restocks
+  restock_status: { type: String, enum: ["pending", "approved", "denied"], default: null } // ✅ Restock state
 }, { collection: "products" }); // ✅ Explicitly set collection name
 
 // ✅ Update `updated_at` before saving

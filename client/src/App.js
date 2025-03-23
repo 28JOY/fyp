@@ -29,12 +29,13 @@ class App extends Component {
 
     this.channel.bind("updated", (updatedProduct) => {
       if (!updatedProduct || (!updatedProduct._id && !updatedProduct.id)) return; // ✅ Ensures a valid ID exists
-    
       const productId = updatedProduct._id || updatedProduct.id; // ✅ Handles both formats
     
       this.setState((prevState) => {
         const updatedProducts = prevState.products.map((p) =>
-          p._id === productId ? { ...p, stock_quantity: updatedProduct.stock_quantity } : p
+          p._id === productId 
+            ? { ...p, stock_quantity: updatedProduct.stock_quantity, restock_status: "approved", pending_restock: 0 } 
+            : p
         );
 
         // Check if the updated product is now low on stock
@@ -59,12 +60,9 @@ class App extends Component {
 
     this.channel.bind("low-stock", (alertProduct) => {
       console.log("⚠ Received low-stock alert:", alertProduct);
-    
       this.setState((prevState) => {
         const alreadyExists = prevState.lowStockProducts.some((p) => p._id === alertProduct._id);
         if (alreadyExists) return null; // Prevent duplicates
-
-        console.log("📢 Updating lowStockProducts:", [...prevState.lowStockProducts, alertProduct]);
     
         return {
           lowStockProducts: [...prevState.lowStockProducts, alertProduct],
@@ -75,15 +73,14 @@ class App extends Component {
     
   this.channel.bind("restocked", (restockedProduct) => {
     if (!restockedProduct || (!restockedProduct._id && !restockedProduct.id)) return;
-  
     const productId = restockedProduct._id || restockedProduct.id; // ✅ Handles both formats
   
     this.setState((prevState) => {
       const updatedProducts = prevState.products.map((p) =>
-        p._id === productId ? { ...p, stock_quantity: restockedProduct.stock_quantity } : p
+        p._id === productId 
+          ? { ...p, stock_quantity: restockedProduct.stock_quantity, restock_status: "approved", pending_restock: 0 } 
+          : p
       );
-
-      console.log("✅ Restock Event Received. Removing low-stock alert for:", restockedProduct.name);
   
       return {
         products: updatedProducts,
@@ -111,28 +108,19 @@ class App extends Component {
 
   fetchProducts = () => {
     fetch(API_URL)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! Status: ${res.status}`);
-        }
-        return res.json();
-      })
+      .then((res) => res.json())
       .then((data) => {
         const lowStockItems = data.filter((product) => product.stock_quantity < 25);
-  
-        // Log the alert immediately if low stock products are found
-        if (lowStockItems.length > 0) {
-          console.debug("⚠ Found low stock products on startup, triggering alerts...");
-        }
-  
+        const logs = [...this.state.logs];
+        lowStockItems.forEach((p) => logs.push(`⚠ Low Stock Alert: ${p.name} is running low!`));
+
+        const updatedProducts = data.map((p) => ({ ...p }));
+
         this.setState({
-          products: data,
-          filteredProducts: data,
+          products: updatedProducts,
+          filteredProducts: updatedProducts,
           lowStockProducts: lowStockItems,
-          logs: [
-            ...this.state.logs,
-            ...lowStockItems.map((p) => `⚠ Low Stock Alert: ${p.name} is running low!`),
-          ],
+          logs,
         });
       })
       .catch((err) => {
@@ -148,11 +136,42 @@ class App extends Component {
     const selectedCategory = e.target.value;
     this.setState({
       selectedCategory,
-      filteredProducts: selectedCategory === "All"
+      filteredProducts: 
+      selectedCategory === "All"
         ? this.state.products
         : this.state.products.filter((product) => product.category === selectedCategory),
     });
   };
+
+  restockProduct = (productId, amount) => {
+    if (!amount || amount <= 0) {
+      alert("Please enter a valid restock amount.");
+      return;
+    }
+
+    const product = this.state.products.find((p) => p._id === productId);
+    if (!product) {
+      alert("❌ Error: Product not found in the inventory.");
+      return;
+    }
+
+    fetch(`${API_URL}/restock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId, amount: parseInt(amount, 10) }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        this.setState((prevState) => ({
+          lowStockProducts: prevState.lowStockProducts.map((p) =>
+            p._id === productId ? { ...p, restockRequested: true } : p
+          ),
+          logs: [...prevState.logs, `🔄 Restock Requested: ${amount} units for ${product.name}. Waiting for approval...`],
+        }));
+        alert(`Restock process started for ${product.name}. Approval in 15 seconds.`);
+      })
+      .catch((err) => console.error("❌ Error in restocking:", err));
+  }; 
 
   handleTestProductChange = (e) => {
     this.setState({ selectedTestProduct: e.target.value });
@@ -199,65 +218,11 @@ class App extends Component {
               : prevState.lowStockProducts,
             logs: [...prevState.logs, `🛠 Test Sell: ${testSellQuantity} units of ${selectedProduct.name} sold.`],
           };
-        }, () => {
-          console.log("✅ Updated products after test selling:", this.state.products);
         });
       })
       .catch((err) => console.error("Error selling product:", err));
   };  
-
-  restockProduct = (productId, amount) => {
-    if (!amount || amount <= 0) {
-      alert("Please enter a valid restock amount.");
-      return;
-    }
-
-    // Ensure the product exists before making the API call
-    const product = this.state.products.find((p) => p._id === productId);
-    if (!product) {
-      alert("❌ Error: Product not found in the inventory.");
-      return;
-    }
-
-    if (this.state.lowStockProducts.some((p) => p._id === productId && p.restockRequested)) {
-      alert(`Restock request for ${product.name} is already in progress.`);
-      return;
-    }
-
-    console.log(`📦 Restock requested for ${product.name} (${productId}) with ${amount} units.`);
-
-    fetch(`${API_URL}/restock`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId, amount: parseInt(amount, 10) }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log(data.message);
-
-        // Update state to remove from lowStockProducts
-        this.setState((prevState) => ({
-          products: prevState.products.map((p) =>
-            p._id === productId ? { ...p, stock_quantity: p.stock_quantity + parseInt(amount, 10) } : p
-          ),
-          filteredProducts: prevState.filteredProducts.map((p) =>
-            p._id === productId ? { ...p, stock_quantity: p.stock_quantity + parseInt(amount, 10) } : p
-          ),
-          lowStockProducts: prevState.lowStockProducts.map((p) =>
-          p._id === productId ? { ...p, restockRequested: true } : p
-        ),
-          logs: [
-            ...prevState.logs,
-            `✅ Restock requested: ${amount} units for ${product.name} (${productId}).`,
-          ],
-        }), () => {
-          console.log("✅ Updated lowStockProducts after restock:", this.state.lowStockProducts);
-        });
-
-        alert(`Restock process started for ${product.name}. Approval in 15 seconds.`);
-      })
-      .catch((err) => console.error("❌ Error in restocking:", err));
-  };    
+   
 
   render() {
     return (
@@ -281,7 +246,7 @@ class App extends Component {
         {/* Product Grid */}
         <div className="product-grid">
           {this.state.filteredProducts.map((product) => (
-            <div key={product._id} className={`product-card ${product.stock_quantity < 25 ? "low-stock" : ""}`}>
+            <div key={product._id} className={`product-card ${product.stock_quantity < 25 ? "low-stock" : ""} ${product.stock_quantity === 0 ? "out-of-stock" : ""}`}>
               <img src={product.image} alt={product.name} className="product-image" />
               <div className="product-info">
                 <h3>{product.name}</h3>
@@ -289,62 +254,65 @@ class App extends Component {
                 <p><b>Price:</b> ₹{product.price}</p>
                 <p><b>Stock:</b> {product.stock_quantity}</p>
                 <p><b>Category:</b> {product.category}</p>
+                {product.stock_quantity === 0 && <p className="stock-warning">🚫 Out of Stock</p>}
               </div>
             </div>
           ))}
         </div>
 
         {/* Manual Sell for Testing Section */}
-<div className="test-sell-container">
-  <h2>🛠 Sell a Product for Testing</h2>
-  <select onChange={this.handleTestProductChange} value={this.state.selectedTestProduct}>
-    <option value="">Select a Product</option>
-    {this.state.products.map((product) => (
-      <option key={product._id} value={product._id}>
-        {product.name} ({product.stock_quantity} in stock)
-      </option>
-    ))}
-  </select>
-  <input
-    type="number"
-    min="1"
-    value={this.state.testSellQuantity}
-    onChange={this.handleTestSellQuantityChange}
-    className="test-sell-quantity"
-  />
-  <button className="test-sell-btn" onClick={this.sellTestProduct}>Sell for Testing</button>
-</div>
+        <div className="test-sell-container">
+          <h2>🛠 Sell a Product for Testing</h2>
+          <select onChange={this.handleTestProductChange} value={this.state.selectedTestProduct}>
+            <option value="">Select a Product</option>
+            {this.state.products.map((product) => (
+          <option 
+            key={product._id} 
+            value={product._id} 
+            disabled={product.stock_quantity === 0}
+          >
+            {product.name} ({product.stock_quantity} in stock)
+            {product.stock_quantity === 0 ? " - Out of Stock" : ""}
+          </option>
+        ))}
+          </select>
+          <input
+            type="number"
+            min="1"
+            value={this.state.testSellQuantity}
+            onChange={this.handleTestSellQuantityChange}
+            className="test-sell-quantity"
+          />
+          <button className="test-sell-btn" onClick={this.sellTestProduct}>Sell for Testing</button>
+        </div>
 
-{/* Low Stock Alerts & Restocking UI */}
-{this.state.lowStockProducts.length > 0 && (
-  <div className="alert-box">
-    <h2>
-    <span role="img" aria-label="warning">⚠</span> Low Stock Alert!
-    </h2>
-    {this.state.lowStockProducts.map((product, index) => {
-  if (!product._id) {
-    console.error("❌ Missing _id for product:", product);
-    return null; // Prevents rendering invalid products
-  }
-
-  return (
-    <div key={product._id || `lowStock-${index}`} className="low-stock-item">
-      <p>
-        <b>{product.name}</b> is running low! Approval pending.
-      </p>
-      <input
-        type="number"
-        min="1"
-        placeholder="Enter restock amount"
-        value={this.state[`restock_${product._id}`] || ""}
-        onChange={(e) => {
-          const value = e.target.value;
-          this.setState((prevState) => ({
-            ...prevState,
-            [`restock_${product._id}`]: value,
-          }));
-        }}
-      />
+        {/* Low Stock Alerts & Restocking UI */}
+        {this.state.lowStockProducts.length > 0 && (
+          <div className="alert-box">
+            <h2>
+            <span role="img" aria-label="warning">⚠</span> Low Stock Alert!
+            </h2>
+            {this.state.lowStockProducts.map((product, index) => {
+          if (!product._id) return null; // Prevents rendering invalid products
+          return (
+            <div key={product._id || `lowStock-${index}`} className="low-stock-item">
+              <p>
+              <b>{product.name}</b> is running low!
+              {product.restockRequested ? " ⏳ Restock requested, waiting for approval..." : ""}
+              </p>
+              <input
+                type="number"
+                min="1"
+                placeholder="Enter restock amount"
+                value={this.state[`restock_${product._id}`] || ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  this.setState((prevState) => ({
+                    ...prevState,
+                    [`restock_${product._id}`]: value,
+                  }));
+                }}
+              />
       <button 
         className="restock-btn"
         onClick={() => {
