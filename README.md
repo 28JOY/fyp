@@ -1,30 +1,79 @@
-# realtime-mongodb-pusher
-React application that allows you to add and delete tasks. It communicates to an API implemented in Node.js that saves the changes to a database. The Node.js script also receives these changes using change streams, parsing them and publishing them to a Pusher channel so the React application can consume them. 
+## ⚠️ Attribution
 
-Follow the tutorial [here](https://pusher.com/tutorials/mongodb-change-streams).
+This project is **based on an open-source repository by Esteban Herrera**.
 
-## Getting Started
+🔗 Original repository: [https://github.com/eh3rrera/realtime-mongodb-pusher](https://github.com/eh3rrera/realtime-mongodb-pusher)  
+🛠 Modified by **Jessica Joy** for academic purposes as part of a Final Year Project.  
+✨ Enhancements include:
+- Advanced low-stock alert system
+- Automatic product selling simulation
+- Warehouse restocking logic with approval delay
+- Improved UI and test functionalities
 
-1. Clone this repository.
-2. Create a [Pusher app](https://dashboard.pusher.com).
-3. Enter your Pusher app information in `server/server.js` and in `client/src/App.js`.
-4. In a terminal window, start MongoDB as a replica set of one server with the command: `mongod --dbpath <DATA_PATH> --replSet "rs"`.
-5. In a separate terminal window, run `mongo`, the MongoDB client.
-6. If this is the first time you set up a replica set, execute the command `rs.initiate()`.
-7. Create the database `tasksDb` (`use tasksDb`) and the collection `tasks` (`db.createCollection('tasks')`).
-8. In a separate terminal window, `cd` into the `server` directory and execute `npm install` to download the dependencies and then, `npm start` to start the server.
-9. In a separate terminal window, `cd` into the `client` directory and execute `npm install` to download the dependencies and then, `npm start` to start the app.
-10. A browser window will open, you can open another one to see how the task are replicated in realtime.
+This project retains the original MIT License.
 
-### Prerequisites
 
-- [MongoDB (version 3.6 or superior)](https://www.mongodb.com/download-center#community)
-- [Node.js (6 or superior)](https://nodejs.org/en/download/)
+## 📦 Real-Time Inventory Management System
 
-## Built With
+A real-time inventory system that simulates stock depletion and restocking using MongoDB, Express, React, Node.js, and Pusher. This project helps visualize low stock alerts, auto-selling, and delayed restocking approvals with live UI updates.
 
-* [MongoDB](https://www.mongodb.com/) - NoSQL database
-* [Node.js](https://nodejs.org/en/) - A JavaScript runtime 
-* [React](https://reactjs.org/) - A JavaScript library for building webapps
-* [Pusher](https://pusher.com/) - APIs to enable devs building realtime features
+## 🚀 Features
 
+✅ Real-time stock updates using Pusher
+⚠️ Low stock detection when quantity drops below 25 units
+🛒 Auto-selling logic that randomly sells items at intervals
+⏳ Restock approval with a 15-second simulated delay
+🧪 Manual product testing via dropdown and quantity selector
+🔔 Visual alerts for out-of-stock and low-stock products
+📝 System log viewer for tracking all inventory events
+
+## 🛠 Tech Stack
+
+Frontend: React.js
+Backend: Express.js, Node.js
+Database: MongoDB Atlas
+Real-time Events: Pusher
+
+## 🖥️ Local Setup
+
+# Prerequisites
+Node.js & npm
+MongoDB Atlas account
+
+# Steps:
+1. Clone the repository
+git clone https://github.com/28JOY/fyp.git
+cd fyp
+
+2. Install dpeendencies
+# Install backend dependencies
+cd server
+npm install
+
+# Install frontend dependencies
+cd ../client
+npm install
+
+3. Add your MongoDB URI and Pusher credentials Update the following in server.js:
+
+mongoose.connect("YOUR_MONGODB_URI");
+
+And update your Pusher keys:
+
+const pusher = new Pusher({
+  appId: "your-app-id",
+  key: "your-key",
+  secret: "your-secret",
+  cluster: "your-cluster",
+  useTLS: true,
+});
+
+4. Run the servers
+
+# Start backend server
+cd server
+node server.js
+
+# Start frontend React app
+cd ../client
+npm start
